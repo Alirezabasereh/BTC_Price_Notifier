@@ -60,7 +60,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"✅ از الان هر {interval} ثانیه قیمت BTC رو می‌فرستم.\n"
-        f"دستورات: /now /interval <sec> /status /stop"
     )
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -124,3 +123,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
