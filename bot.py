@@ -5,7 +5,7 @@ import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# لاگ‌گیری ساده
+# لاگ ساده
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -15,14 +15,12 @@ if not BOT_TOKEN:
 BINANCE_TICKER_URL = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
 DEFAULT_INTERVAL = 60  # ثانیه
 
-# گرفتن قیمت
 def fetch_btc_usdt() -> float:
     resp = requests.get(BINANCE_TICKER_URL, timeout=10)
     resp.raise_for_status()
     data = resp.json()
     return float(data["price"])
 
-# ارسال قیمت
 async def send_price(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id  # type: ignore
     try:
@@ -33,10 +31,9 @@ async def send_price(context: ContextTypes.DEFAULT_TYPE):
         text = "⚠️ خطا در دریافت قیمت."
     await context.bot.send_message(chat_id=chat_id, text=text)
 
-# دستورات
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    # توقف کار قبلی
+    # جلوگیری از جاب‌های تکراری
     for job in context.job_queue.get_jobs_by_name(f"price_job_{chat_id}"):
         job.schedule_removal()
 
@@ -55,7 +52,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         name=f"price_job_{chat_id}",
     )
     await update.message.reply_text(
-        f"✅ از الان هر {interval} ثانیه قیمت BTC رو برات می‌فرستم.\nدستورات: /now /interval <sec> /status /stop"
+        f"✅ از الان هر {interval} ثانیه قیمت BTC رو می‌فرستم.\n"
+        f"دستورات: /now /interval <sec> /status /stop"
     )
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -64,10 +62,7 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for job in context.job_queue.get_jobs_by_name(f"price_job_{chat_id}"):
         job.schedule_removal()
         removed = True
-    if removed:
-        await update.message.reply_text("⏹️ ارسال دوره‌ای متوقف شد.")
-    else:
-        await update.message.reply_text("⏹️ در حال حاضر ارسالی فعال نیست.")
+    await update.message.reply_text("⏹️ ارسال دوره‌ای متوقف شد." if removed else "⏹️ ارسالی فعال نبود.")
 
 async def now(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -98,21 +93,18 @@ async def interval(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     jobs = context.job_queue.get_jobs_by_name(f"price_job_{chat_id}")
-    if jobs:
-        await update.message.reply_text("✅ ارسال دوره‌ای فعال است.")
-    else:
-        await update.message.reply_text("⏸️ ارسال دوره‌ای غیرفعال است.")
+    await update.message.reply_text("✅ ارسال دوره‌ای فعال است." if jobs else "⏸️ ارسال دوره‌ای غیرفعال است.")
 
-# اجرای اصلی
-async def main():
+def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stop", stop))
     app.add_handler(CommandHandler("now", now))
     app.add_handler(CommandHandler("interval", interval))
     app.add_handler(CommandHandler("status", status))
-    await app.run_polling()
+    logging.info("🚀 Starting bot with polling ...")
+    # نکته: drop_pending_updates=True تا پیام‌های قدیمی صف نشن
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()
