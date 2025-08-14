@@ -76,7 +76,7 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def now(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         price = fetch_btc_usdt()
-        await update.message.reply_text(f"💰 BTC/USDT: {price:.2f} USD")
+        await update.message.reply_text(f"💰 BTC/USDT: {price:.0f} USD")
     except Exception as e:
         await update.message.reply_text(f"⚠️ خطا در دریافت قیمت: {e}")
 
@@ -123,4 +123,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
