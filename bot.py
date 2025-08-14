@@ -1,50 +1,32 @@
-Python 3.13.1 (tags/v3.13.1:0671451, Dec  3 2024, 19:06:28) [MSC v.1942 64 bit (AMD64)] on win32
-Type "help", "copyright", "credits" or "license()" for more information.
->>> """
-... Telegram BTC Rate Notifier – sends BTC price every 60s to any chat that pressed /start
-... Python 3.10+
-... 
-... ENV required:
-...   BOT_TOKEN=123456:ABC-DEF...  # from @BotFather
-... 
-... Run (local):
-...   pip install -r requirements.txt
-...   BOT_TOKEN=... python bot.py
-... 
-... Notes:
-... - Uses Binance public REST (no API key): /api/v3/ticker/price?symbol=BTCUSDT
-... - Each chat gets its own repeating job (60s). You can change interval with /interval 30
-... - Commands: /start /stop /now /interval <seconds> /status
-... """
-... from __future__ import annotations
-... import os
-... import logging
-... import requests
-... from typing import Optional
-... 
-... from telegram import Update
-... from telegram.ext import (
-...     ApplicationBuilder,
-...     CommandHandler,
-...     ContextTypes,
-... )
-... 
-... logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-... BOT_TOKEN = os.environ.get("BOT_TOKEN")
-... if not BOT_TOKEN:
-...     raise SystemExit("Missing BOT_TOKEN env var")
-... 
-... BINANCE_TICKER_URL = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-... DEFAULT_INTERVAL = 60  # seconds
-... 
-... 
-... def fetch_btc_usdt() -> float:
-...     resp = requests.get(BINANCE_TICKER_URL, timeout=10)
-...     resp.raise_for_status()
-...     data = resp.json()
-...     return float(data["price"])  # type: ignore
-... 
-... 
+from __future__ import annotations
+import os
+import logging
+import requests
+from typing import Optional
+
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+)
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+if not BOT_TOKEN:
+    raise SystemExit("Missing BOT_TOKEN env var")
+
+BINANCE_TICKER_URL = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
+DEFAULT_INTERVAL = 60  # seconds
+
+
+def fetch_btc_usdt() -> float:
+    resp = requests.get(BINANCE_TICKER_URL, timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
+    return float(data["price"])  # type: ignore
+
+
 async def send_price(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id  # type: ignore
     try:
@@ -142,3 +124,4 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+    asyncio.run(main())
