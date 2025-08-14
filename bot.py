@@ -22,7 +22,7 @@ def fetch_btc_usdt() -> float:
     return float(data["price"])
 
 async def send_price(context: ContextTypes.DEFAULT_TYPE):
-    chat_id = context.job.chat_id  # type: ignore
+    chat_id = context.job.data["chat_id"]  # استفاده از job.data برای پایدار بودن
     try:
         price = fetch_btc_usdt()
         text = f"💰 BTC/USDT: {price:.2f} USD"
@@ -33,7 +33,7 @@ async def send_price(context: ContextTypes.DEFAULT_TYPE):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    # جلوگیری از جاب‌های تکراری
+    # حذف jobهای تکراری
     for job in context.job_queue.get_jobs_by_name(f"price_job_{chat_id}"):
         job.schedule_removal()
 
@@ -48,7 +48,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         send_price,
         interval=interval,
         first=0,
-        chat_id=chat_id,
+        data={"chat_id": chat_id},  # ذخیره chat_id در data
         name=f"price_job_{chat_id}",
     )
     await update.message.reply_text(
@@ -85,7 +85,7 @@ async def interval(update: Update, context: ContextTypes.DEFAULT_TYPE):
         send_price,
         interval=seconds,
         first=0,
-        chat_id=chat_id,
+        data={"chat_id": chat_id},  # ذخیره chat_id در data
         name=f"price_job_{chat_id}",
     )
     await update.message.reply_text(f"🔄 بازهٔ ارسال روی {seconds} ثانیه تنظیم شد.")
@@ -103,7 +103,6 @@ def main():
     app.add_handler(CommandHandler("interval", interval))
     app.add_handler(CommandHandler("status", status))
     logging.info("🚀 Starting bot with polling ...")
-    # نکته: drop_pending_updates=True تا پیام‌های قدیمی صف نشن
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
