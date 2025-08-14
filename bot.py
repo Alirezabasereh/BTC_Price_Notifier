@@ -5,7 +5,7 @@ import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# لاگ ساده
+# تنظیم لاگ
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -22,7 +22,7 @@ def fetch_btc_usdt() -> float:
     return float(data["price"])
 
 async def send_price(context: ContextTypes.DEFAULT_TYPE):
-    chat_id = context.job.data["chat_id"]  # استفاده از job.data برای پایدار بودن
+    chat_id = context.job.data["chat_id"]
     try:
         price = fetch_btc_usdt()
         text = f"💰 BTC/USDT: {price:.2f} USD"
@@ -33,7 +33,13 @@ async def send_price(context: ContextTypes.DEFAULT_TYPE):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    # حذف jobهای تکراری
+
+    # بررسی فعال بودن JobQueue
+    if context.job_queue is None:
+        await update.message.reply_text("❌ JobQueue فعال نیست. کتابخانه را با [job-queue] نصب کنید.")
+        return
+
+    # حذف jobهای قبلی
     for job in context.job_queue.get_jobs_by_name(f"price_job_{chat_id}"):
         job.schedule_removal()
 
@@ -48,9 +54,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         send_price,
         interval=interval,
         first=0,
-        data={"chat_id": chat_id},  # ذخیره chat_id در data
+        data={"chat_id": chat_id},
         name=f"price_job_{chat_id}",
     )
+
     await update.message.reply_text(
         f"✅ از الان هر {interval} ثانیه قیمت BTC رو می‌فرستم.\n"
         f"دستورات: /now /interval <sec> /status /stop"
@@ -58,11 +65,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    removed = False
-    for job in context.job_queue.get_jobs_by_name(f"price_job_{chat_id}"):
-        job.schedule_removal()
-        removed = True
-    await update.message.reply_text("⏹️ ارسال دوره‌ای متوقف شد." if removed else "⏹️ ارسالی فعال نبود.")
+    if context.job_queue:
+        removed = False
+        for job in context.job_queue.get_jobs_by_name(f"price_job_{chat_id}"):
+            job.schedule_removal()
+            removed = True
+        await update.message.reply_text("⏹️ ارسال دوره‌ای متوقف شد." if removed else "⏹️ ارسالی فعال نبود.")
+    else:
+        await update.message.reply_text("❌ JobQueue فعال نیست.")
 
 async def now(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -79,21 +89,27 @@ async def interval(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         return await update.message.reply_text("عدد نامعتبر است.")
     chat_id = update.effective_chat.id
-    for job in context.job_queue.get_jobs_by_name(f"price_job_{chat_id}"):
-        job.schedule_removal()
-    context.job_queue.run_repeating(
-        send_price,
-        interval=seconds,
-        first=0,
-        data={"chat_id": chat_id},  # ذخیره chat_id در data
-        name=f"price_job_{chat_id}",
-    )
-    await update.message.reply_text(f"🔄 بازهٔ ارسال روی {seconds} ثانیه تنظیم شد.")
+    if context.job_queue:
+        for job in context.job_queue.get_jobs_by_name(f"price_job_{chat_id}"):
+            job.schedule_removal()
+        context.job_queue.run_repeating(
+            send_price,
+            interval=seconds,
+            first=0,
+            data={"chat_id": chat_id},
+            name=f"price_job_{chat_id}",
+        )
+        await update.message.reply_text(f"🔄 بازهٔ ارسال روی {seconds} ثانیه تنظیم شد.")
+    else:
+        await update.message.reply_text("❌ JobQueue فعال نیست.")
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    jobs = context.job_queue.get_jobs_by_name(f"price_job_{chat_id}")
-    await update.message.reply_text("✅ ارسال دوره‌ای فعال است." if jobs else "⏸️ ارسال دوره‌ای غیرفعال است.")
+    if context.job_queue:
+        jobs = context.job_queue.get_jobs_by_name(f"price_job_{chat_id}")
+        await update.message.reply_text("✅ ارسال دوره‌ای فعال است." if jobs else "⏸️ ارسال دوره‌ای غیرفعال است.")
+    else:
+        await update.message.reply_text("❌ JobQueue فعال نیست.")
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -102,6 +118,7 @@ def main():
     app.add_handler(CommandHandler("now", now))
     app.add_handler(CommandHandler("interval", interval))
     app.add_handler(CommandHandler("status", status))
+
     logging.info("🚀 Starting bot with polling ...")
     app.run_polling(drop_pending_updates=True)
 
